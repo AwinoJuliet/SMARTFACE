@@ -39,38 +39,49 @@ def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
 
 # --- FACE CAPTURE AFTER USER INSERTION ---
-def capture_faces(reg_no):
-    cap = cv2.VideoCapture(0)
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    save_dir = os.path.join("dataset", reg_no)
-    os.makedirs(save_dir, exist_ok=True)
+def capture_faces(full_name):
+    full_name = full_name.strip().replace(" ", "_")
+    dataset_dir = "dataset"
+    if not os.path.exists(dataset_dir):
+        os.makedirs(dataset_dir)
 
-    img_count = 0
-    while img_count < 20:
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: Webcam not accessible.")
+        return
+
+    face_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    count = 0
+
+    while True:
         ret, frame = cap.read()
         if not ret:
+            print("Failed to grab frame")
             break
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+        faces = face_detector.detectMultiScale(gray, 1.3, 5)
 
         for (x, y, w, h) in faces:
-            img_count += 1
-            face_img = frame[y:y+h, x:x+w]
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            filename = os.path.join(save_dir, f"{reg_no}_{timestamp}_{img_count}.jpg")
-            cv2.imwrite(filename, face_img)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.putText(frame, f"{img_count}/20", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+            face = gray[y:y+h, x:x+w]
+            face_resized = cv2.resize(face, (200, 200))
 
-        cv2.imshow("Capturing Face - Press 'q' to Cancel", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-        if img_count >= 20:
+            filename = os.path.join(dataset_dir, f"{full_name}_{count+1}.jpg")
+            cv2.imwrite(filename, face_resized)
+            count += 1
+
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.putText(frame, f"Image {count}", (x, y-10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+
+        cv2.imshow("Capturing Faces - Press Q to quit", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q') or count >= 20:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    messagebox.showinfo("Success", f"Face images for {reg_no} captured and saved!")
+    print(f"[INFO] {count} images saved for '{full_name}' in the dataset folder.")
 
 # --- USER DETAILS FORM ---
 def user_details_form():
@@ -106,7 +117,7 @@ def user_details_form():
             conn.commit()
             messagebox.showinfo("Saved", "User details inserted successfully")
             form.destroy()
-            capture_faces(reg)  # Launch webcam capture after insertion
+            capture_faces(name)  # Launch webcam capture after insertion
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to save user details: {e}")
 
@@ -163,16 +174,18 @@ def show_login_page():
     min_x, min_y = 0, 0
 
     def animate_text():
-        nonlocal dx, dy
-        x = text_label.winfo_x()
-        y = text_label.winfo_y()
-        if x + dx > max_x or x + dx < min_x:
-            dx = -dx
-        if y + dy > max_y or y + dy < min_y:
-            dy = -dy
-        text_label.place(x=x + dx, y=y + dy)
-        left_frame.after(30, animate_text)
-    animate_text()
+     nonlocal dx, dy
+    if not left_frame.winfo_exists():
+        return  # Exit if left_frame has been destroyed
+    x = text_label.winfo_x()
+    y = text_label.winfo_y()
+    if x + dx > max_x or x + dx < min_x:
+        dx = -dx
+    if y + dy > max_y or y + dy < min_y:
+        dy = -dy
+    text_label.place(x=x + dx, y=y + dy)
+    left_frame.after(30, animate_text)
+
 
     try:
         logo_img = Image.open("FACE 1.png")
@@ -231,6 +244,7 @@ def show_login_page():
         main_app.geometry("400x300")
         tk.Label(main_app, text=f"Welcome {user[1]}", font=("Times new roman", 14)).pack(pady=20)
         ttk.Button(main_app, text="Register New Student", style="Hover.TButton", command=lambda: [main_app.destroy(), user_details_form()]).pack(pady=10)
+
         ttk.Button(main_app, text="Logout", style="Hover.TButton", command=lambda: logout(main_app)).pack(pady=10)
         main_app.mainloop()
 

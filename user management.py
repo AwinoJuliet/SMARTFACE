@@ -118,7 +118,7 @@ def show_user_management_page():
     ttk.Button(top_frame, text="Search", command=search).pack(side=tk.LEFT)
 
     tk.Label(top_frame, text="  Filter by Year:", bg="lightgray").pack(side=tk.LEFT, padx=10)
-    year_filter = ttk.Combobox(top_frame, values=["All"] + [str(y) for y in range(2020, 2031)], state="readonly", width=10)
+    year_filter = ttk.Combobox(top_frame, values=["All"] + [str(y) for y in range(2000, 2100)], state="readonly", width=10)
     year_filter.set("All")
     year_filter.pack(side=tk.LEFT)
     year_filter.bind("<<ComboboxSelected>>", filter_year)
